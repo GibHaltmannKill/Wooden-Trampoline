@@ -1,5 +1,5 @@
 #include <cstdint>
-#include <iostream>
+#include <fstream>
 
 bool isBigEndian()
 {
@@ -11,24 +11,29 @@ bool isBigEndian()
 class BigEndianStream
 {
 private:
-	std::iostream * pStream;
+	std::filebuf buffer;
+	bool bufOpen;
 public:
+	bool isOpen()
+	{
+		return bufOpen;
+	}
+	
 	template<typename T> T read()
 	{
+		if (!bufOpen) return;
+		
 		T input;
 		
 		char * pInput = reinterpret_cast<char *>(&input);
 		
 		if (isBigEndian())
 		{
-			pStream->read(pInput, sizeof(T));
+			buffer->sgetn(pInput, sizeof(T));
 		}
-		else
+		else for (int i = sizeof(T) - 1; i >= 0; i--)
 		{
-			for (int i = sizeof(T) - 1; i >= 0; i--)
-			{
-				pStream->read(pInput + i, 1);
-			}
+			pInput[i] = buffer->sgetc();
 		}
 		
 		return input;
@@ -36,24 +41,23 @@ public:
 	
 	template<typename T> void write(T output)
 	{
-		char * pOutput = reinterpret_cast<char *>(&pOutput);
+		if (!bufOpen) return;
+		
+		char * pOutput = reinterpret_cast<char *>(&output);
 		
 		if (isBigEndian())
 		{
-			pStream->write(pOutput, sizeof(T));
+			buffer->sputn(pOutput, sizeof(T));
 		}
-		else
+		else for (int i = sizeof(T) - 1; i >= 0; i--)
 		{
-			for (int i = sizeof(T) - 1; i >= 0; i--)
-			{
-				pStream->write(pOutput + i, 1);
-			}
-		}
+			buffer->sputc(pOutput[i]);
+		}	
 	}
 	
-	~BigEndianStream()
+	BigEndianStream(const char * path) : buffer()
 	{
-		delete pStream;
+		bufOpen = buffer.open(path) != nullptr;
 	}
 }
 
